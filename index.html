@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#185FA5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="工程拍照">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>工程拍照</title>
+<style>
+  :root {
+    --blue: #185FA5;
+    --blue-light: #E6F1FB;
+    --blue-mid: #85B7EB;
+    --blue-dark: #0C447C;
+    --green-light: #EAF3DE;
+    --green-dark: #27500A;
+    --green-mid: #97C459;
+    --amber-light: #FAEEDA;
+    --amber-dark: #633806;
+    --amber-mid: #EF9F27;
+    --bg: #f5f5f3;
+    --card: #ffffff;
+    --text: #1a1a18;
+    --text-2: #5f5e5a;
+    --text-3: #9e9d99;
+    --border: rgba(0,0,0,0.12);
+    --border-2: rgba(0,0,0,0.22);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --card: #2a2a28;
+      --text: #f0ede8;
+      --text-2: #a8a7a3;
+      --text-3: #6b6a66;
+      --border: rgba(255,255,255,0.1);
+      --border-2: rgba(255,255,255,0.2);
+      --blue-light: #0c2a45;
+      --blue-dark: #85b7eb;
+      --green-light: #1a2e0a;
+      --green-dark: #97c459;
+      --amber-light: #2e1e05;
+      --amber-dark: #ef9f27;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overscroll-behavior: none;
+  }
+  .screen { display: none; flex-direction: column; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* Top bar */
+  .topbar {
+    background: var(--card);
+    border-bottom: 0.5px solid var(--border);
+    padding: calc(var(--safe-top) + 12px) 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar-title { font-size: 17px; font-weight: 600; flex: 1; }
+  .back-btn {
+    width: 34px; height: 34px;
+    border: 0.5px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .ghost-btn {
+    padding: 6px 14px;
+    border: 0.5px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  /* Scroll content */
+  .content { flex: 1; overflow-y: auto; padding: 12px 16px calc(var(--safe-bottom) + 16px); }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .card-label {
+    font-size: 11px;
+    color: var(--text-3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  /* Inputs */
+  input[type=text], select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 0.5px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    -webkit-appearance: none;
+  }
+  input[type=text]:focus, select:focus {
+    outline: none;
+    border-color: var(--blue);
+  }
+
+  /* Tags */
+  .tag-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .tag {
+    padding: 7px 14px;
+    border-radius: 99px;
+    font-size: 14px;
+    border: 0.5px solid var(--border-2);
+    cursor: pointer;
+    background: var(--bg);
+    color: var(--text-2);
+    font-weight: 400;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tag.sel { font-weight: 500; }
+  .tag.sel-point { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue-mid); }
+  .tag.sel-pre { background: var(--amber-light); color: var(--amber-dark); border-color: var(--amber-mid); }
+  .tag.sel-post { background: var(--green-light); color: var(--green-dark); border-color: var(--green-mid); }
+  .tag.sel-nat { background: var(--blue-light); color: var(--blue-dark); border-color: var(--blue-mid); }
+
+  /* Filename box */
+  .fname-box {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    color: var(--text);
+    word-break: break-all;
+    line-height: 1.6;
+    border: 0.5px solid var(--border);
+    min-height: 44px;
+  }
+  .fname-box.dim { font-family: inherit; font-size: 14px; color: var(--text-3); }
+
+  /* Shutter button */
+  .shutter {
+    width: 100%;
+    padding: 16px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 10px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .shutter:disabled { background: var(--border-2); color: var(--text-3); }
+  .shutter:active:not(:disabled) { transform: scale(0.98); opacity: 0.9; }
+  .shutter.success { background: #3B6D11; }
+
+  /* Camera area */
+  .camera-wrap {
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4/3;
+    margin-bottom: 10px;
+  }
+  #camera-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .camera-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .camera-icon { font-size: 40px; opacity: 0.4; }
+  .camera-hint { font-size: 13px; color: rgba(255,255,255,0.6); text-align: center; padding: 0 20px; }
+  #file-input { display: none; }
+  .capture-btn-wrap { display: flex; gap: 8px; margin-bottom: 10px; }
+  .capture-btn {
+    flex: 1;
+    padding: 13px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-2);
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: center;
+  }
+  .capture-btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+
+  /* Stats */
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .stat-card { background: var(--card); border-radius: var(--radius-sm); padding: 12px; text-align: center; border: 0.5px solid var(--border); }
+  .stat-n { font-size: 24px; font-weight: 600; }
+  .stat-l { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+  /* List items */
+  .list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 11px 0;
+    border-bottom: 0.5px solid var(--border);
+    gap: 10px;
+  }
+  .list-item:last-child { border-bottom: none; }
+  .proj-name-text { font-size: 15px; font-weight: 500; }
+  .proj-meta-text { font-size: 12px; color: var(--text-3); margin-top: 3px; }
+  .arrow { color: var(--text-3); font-size: 18px; align-self: center; }
+
+  /* Badges */
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; white-space: nowrap; display: inline-block; }
+  .badge-pre { background: var(--amber-light); color: var(--amber-dark); }
+  .badge-post { background: var(--green-light); color: var(--green-dark); }
+  .badge-nat { background: var(--blue-light); color: var(--blue-dark); }
+
+  /* Log */
+  .log-fname { font-size: 12px; font-family: 'SF Mono', 'Menlo', monospace; word-break: break-all; flex: 1; line-height: 1.5; }
+  .log-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+  .log-time { font-size: 11px; color: var(--text-3); }
+
+  /* Form row */
+  .form-row { display: flex; gap: 8px; align-items: center; }
+  .form-row input { flex: 1; }
+  .sm-btn {
+    padding: 10px 14px;
+    border: 0.5px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+
+  /* Delete btn */
+  .del-btn {
+    padding: 5px 12px;
+    border: 0.5px solid rgba(162,45,45,0.4);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: #A32D2D;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    align-self: center;
+    flex-shrink: 0;
+  }
+  @media (prefers-color-scheme: dark) {
+    .del-btn { color: #f09595; border-color: rgba(240,149,149,0.3); }
+  }
+
+  .empty { color: var(--text-3); font-size: 14px; text-align: center; padding: 20px 0; }
+  .divider { border: none; border-top: 0.5px solid var(--border); margin: 8px 0; }
+  .new-form { display: none; padding-top: 12px; border-top: 0.5px solid var(--border); margin-top: 10px; }
+  .new-form.open { display: block; }
+  .new-form .card-label { margin-top: 10px; }
+  .new-form .card-label:first-child { margin-top: 0; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 20px);
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(30,30,28,0.92);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 99px;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Hidden img for download */
+  #dl-link { display: none; }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div class="screen active" id="s-home">
+  <div class="topbar">
+    <div class="topbar-title">工程拍照</div>
+    <button class="ghost-btn" onclick="goTo('s-settings')">設定</button>
+  </div>
+  <div class="content">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-n" id="h-total">0</div><div class="stat-l">總張數</div></div>
+      <div class="stat-card"><div class="stat-n" id="h-projs">0</div><div class="stat-l">工程數</div></div>
+      <div class="stat-card"><div class="stat-n" id="h-today">0</div><div class="stat-l">今日</div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">選擇工程</div>
+      <div id="home-proj-list"><div class="empty">尚無工程，請先到「設定」新增</div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">最近拍攝</div>
+      <div id="home-log"><div class="empty">尚無紀錄</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SHOOT -->
+<div class="screen" id="s-shoot">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('s-home')">‹</button>
+    <div class="topbar-title" id="shoot-title">拍照</div>
+  </div>
+  <div class="content">
+
+    <div class="card">
+      <div class="card-label">測試點位</div>
+      <div class="form-row">
+        <input type="text" id="point-input" placeholder="輸入點位，如 T-01" autocomplete="off" autocapitalize="characters">
+        <button class="sm-btn" onclick="addPoint()">新增</button>
+      </div>
+      <div class="tag-row" id="point-tags"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">量測類型</div>
+      <div class="tag-row">
+        <div class="tag" id="tt-pre" onclick="setType('pre')">斷電前</div>
+        <div class="tag" id="tt-post" onclick="setType('post')">斷電後</div>
+        <div class="tag" id="tt-nat" onclick="setType('nat')">自然電位</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">預覽檔名</div>
+      <div class="fname-box dim" id="fname-preview">請先選擇測點與量測類型</div>
+    </div>
+
+    <!-- Camera -->
+    <div class="camera-wrap" id="camera-wrap">
+      <video id="camera-preview" autoplay playsinline muted></video>
+      <div class="camera-overlay" id="camera-overlay">
+        <div class="camera-icon">📷</div>
+        <div class="camera-hint">點下方按鈕開啟相機</div>
+      </div>
+    </div>
+
+    <input type="file" id="file-input" accept="image/*" capture="environment">
+
+    <div class="capture-btn-wrap">
+      <button class="capture-btn" onclick="openGallery()">從相簿選取</button>
+      <button class="capture-btn primary" id="shoot-btn" onclick="openCamera()" disabled>開啟相機拍照</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="card-label" style="margin:0">本工程紀錄</div>
+        <div style="font-size:12px;color:var(--text-3)" id="shoot-count">0 張</div>
+      </div>
+      <div id="shoot-log"><div class="empty">尚無拍照紀錄</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="screen" id="s-settings">
+  <div class="topbar">
+    <button class="back-btn" onclick="goTo('s-home')">‹</button>
+    <div class="topbar-title">設定工程</div>
+  </div>
+  <div class="content">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-label" style="margin:0">工程清單</div>
+        <button class="ghost-btn" onclick="toggleNewForm()">＋ 新增</button>
+      </div>
+      <div class="new-form" id="new-proj-form">
+        <div class="card-label">工程代號（如 H2）</div>
+        <input type="text" id="new-code" placeholder="H2" autocapitalize="characters" style="margin-bottom:10px">
+        <div class="card-label">工程名稱</div>
+        <input type="text" id="new-name" placeholder="陰極保護測試" style="margin-bottom:10px">
+        <div class="card-label">預設測點（逗號分隔，可留空）</div>
+        <input type="text" id="new-points" placeholder="T-01, T-02, T-03" style="margin-bottom:12px">
+        <button class="capture-btn primary" onclick="addProject()">儲存工程</button>
+      </div>
+      <div id="settings-list" style="margin-top:10px"><div class="empty">尚無工程</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">關於</div>
+      <div style="font-size:14px;color:var(--text-2);line-height:1.7">
+        工程拍照命名工具<br>
+        照片以工程代號＋測點＋類型＋時間戳記命名<br>
+        範例：H2_T-01_斷電前_202504081430.jpg
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<a id="dl-link"></a>
+
+<script>
+// ── State ──────────────────────────────────────────────
+const S = {
+  projects: [],
+  logs: [],
+  cur: null,      // current project
+  point: null,
+  type: null,
+  points: [],     // points for current project session
+  stream: null
+};
+
+function load() {
+  try {
+    S.projects = JSON.parse(localStorage.getItem('ep_projects') || '[]');
+    S.logs = JSON.parse(localStorage.getItem('ep_logs') || '[]');
+  } catch(e) {}
+}
+function save() {
+  try {
+    localStorage.setItem('ep_projects', JSON.stringify(S.projects));
+    localStorage.setItem('ep_logs', JSON.stringify(S.logs));
+  } catch(e) {}
+}
+
+// ── Navigation ─────────────────────────────────────────
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 's-home') renderHome();
+  if (id === 's-settings') renderSettings();
+  if (id !== 's-shoot') stopCamera();
+}
+
+// ── Toast ──────────────────────────────────────────────
+function toast(msg, dur = 2000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ── Home ───────────────────────────────────────────────
+function renderHome() {
+  const today = new Date().toDateString();
+  document.getElementById('h-total').textContent = S.logs.length;
+  document.getElementById('h-projs').textContent = S.projects.length;
+  document.getElementById('h-today').textContent = S.logs.filter(l => new Date(l.ts).toDateString() === today).length;
+
+  const pl = document.getElementById('home-proj-list');
+  if (!S.projects.length) { pl.innerHTML = '<div class="empty">尚無工程，請先到「設定」新增</div>'; }
+  else {
+    pl.innerHTML = S.projects.map(p => {
+      const cnt = S.logs.filter(l => l.proj === p.code).length;
+      return `<div class="list-item" onclick="startShoot('${p.code}')" style="cursor:pointer">
+        <div><div class="proj-name-text">${p.code} — ${p.name}</div>
+        <div class="proj-meta-text">已拍 ${cnt} 張・${p.points.length} 個預設測點</div></div>
+        <div class="arrow">›</div>
+      </div>`;
+    }).join('');
+  }
+
+  const ll = document.getElementById('home-log');
+  const recent = [...S.logs].reverse().slice(0, 6);
+  if (!recent.length) { ll.innerHTML = '<div class="empty">尚無紀錄</div>'; }
+  else {
+    ll.innerHTML = recent.map(l => logItem(l)).join('');
+  }
+}
+
+function logItem(l) {
+  const badge = { pre: '<span class="badge badge-pre">斷電前</span>', post: '<span class="badge badge-post">斷電後</span>', nat: '<span class="badge badge-nat">自然電位</span>' }[l.type] || '';
+  const t = new Date(l.ts).toLocaleTimeString('zh-TW', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  return `<div class="list-item">
+    <div class="log-fname">${l.fname}</div>
+    <div class="log-meta">${badge}<div class="log-time">${t}</div></div>
+  </div>`;
+}
+
+// ── Settings ───────────────────────────────────────────
+function renderSettings() {
+  const el = document.getElementById('settings-list');
+  if (!S.projects.length) { el.innerHTML = '<div class="empty">尚無工程</div>'; return; }
+  el.innerHTML = S.projects.map((p, i) => `
+    <div class="list-item">
+      <div style="flex:1">
+        <div class="proj-name-text">${p.code} — ${p.name}</div>
+        <div class="proj-meta-text">${p.points.length ? '測點：' + p.points.join(', ') : '無預設測點'}</div>
+      </div>
+      <button class="del-btn" onclick="delProject(${i})">刪除</button>
+    </div>
+  `).join('');
+}
+
+function toggleNewForm() {
+  document.getElementById('new-proj-form').classList.toggle('open');
+}
+
+function addProject() {
+  const code = document.getElementById('new-code').value.trim().toUpperCase();
+  const name = document.getElementById('new-name').value.trim();
+  const pts = document.getElementById('new-points').value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  if (!code || !name) { toast('請填寫工程代號與名稱'); return; }
+  if (S.projects.find(p => p.code === code)) { toast('此工程代號已存在'); return; }
+  S.projects.push({ code, name, points: pts });
+  save();
+  document.getElementById('new-code').value = '';
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-points').value = '';
+  document.getElementById('new-proj-form').classList.remove('open');
+  renderSettings();
+  toast('工程已儲存');
+}
+
+function delProject(i) {
+  if (!confirm(`確定刪除「${S.projects[i].code}」？`)) return;
+  S.projects.splice(i, 1);
+  save();
+  renderSettings();
+}
+
+// ── Shoot ──────────────────────────────────────────────
+function startShoot(code) {
+  const proj = S.projects.find(p => p.code === code);
+  S.cur = proj;
+  S.point = null;
+  S.type = null;
+  S.points = [...proj.points];
+  document.getElementById('shoot-title').textContent = `${proj.code} — ${proj.name}`;
+  document.getElementById('point-input').value = '';
+  ['pre', 'post', 'nat'].forEach(t => document.getElementById('tt-' + t).className = 'tag');
+  renderPointTags();
+  renderShootLog();
+  updateFname();
+  goTo('s-shoot');
+}
+
+function renderPointTags() {
+  const container = document.getElementById('point-tags');
+  container.innerHTML = S.points.map(p =>
+    `<div class="tag${S.point === p ? ' sel sel-point' : ''}" onclick="selectPoint('${p}')">${p}</div>`
+  ).join('');
+}
+
+function addPoint() {
+  const val = document.getElementById('point-input').value.trim().toUpperCase();
+  if (!val) return;
+  if (!S.points.includes(val)) S.points.push(val);
+  selectPoint(val);
+}
+
+function selectPoint(p) {
+  S.point = p;
+  document.getElementById('point-input').value = p;
+  renderPointTags();
+  updateFname();
+}
+
+function setType(t) {
+  S.type = S.type === t ? null : t;
+  ['pre', 'post', 'nat'].forEach(k => {
+    document.getElementById('tt-' + k).className = 'tag' + (S.type === k ? ` sel sel-${k}` : '');
+  });
+  updateFname();
+}
+
+function makeFname() {
+  const typeLabel = { pre: '斷電前', post: '斷電後', nat: '自然電位' }[S.type];
+  const now = new Date();
+  const ts = now.getFullYear().toString()
+    + String(now.getMonth() + 1).padStart(2, '0')
+    + String(now.getDate()).padStart(2, '0')
+    + String(now.getHours()).padStart(2, '0')
+    + String(now.getMinutes()).padStart(2, '0');
+  return `${S.cur.code}_${S.point}_${typeLabel}_${ts}`;
+}
+
+function updateFname() {
+  const el = document.getElementById('fname-preview');
+  const btn = document.getElementById('shoot-btn');
+  const ready = S.cur && S.point && S.type;
+  if (!ready) {
+    el.className = 'fname-box dim';
+    el.textContent = '請先選擇測點與量測類型';
+    btn.disabled = true;
+    return;
+  }
+  el.className = 'fname-box';
+  el.textContent = makeFname() + '.jpg';
+  btn.disabled = false;
+}
+
+// ── Camera ─────────────────────────────────────────────
+function openCamera() {
+  if (!S.cur || !S.point || !S.type) { toast('請先選擇測點與量測類型'); return; }
+  const input = document.getElementById('file-input');
+  input.setAttribute('capture', 'environment');
+  input.click();
+}
+
+function openGallery() {
+  if (!S.cur || !S.point || !S.type) { toast('請先選擇測點與量測類型'); return; }
+  const input = document.getElementById('file-input');
+  input.removeAttribute('capture');
+  input.click();
+}
+
+function stopCamera() {
+  if (S.stream) {
+    S.stream.getTracks().forEach(t => t.stop());
+    S.stream = null;
+  }
+}
+
+document.getElementById('file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!S.cur || !S.point || !S.type) { toast('請先選擇測點與量測類型'); return; }
+
+  const fname = makeFname() + '.jpg';
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    // Draw on canvas and rename download
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.getElementById('dl-link');
+        a.href = url;
+        a.download = fname;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Log
+        S.logs.push({ proj: S.cur.code, fname, type: S.type, ts: new Date().toISOString() });
+        save();
+        renderShootLog();
+        toast('已儲存：' + fname);
+      }, 'image/jpeg', 0.92);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  this.value = '';
+});
+
+function renderShootLog() {
+  const el = document.getElementById('shoot-log');
+  const cnt = document.getElementById('shoot-count');
+  const items = S.logs.filter(l => l.proj === S.cur?.code).reverse().slice(0, 8);
+  cnt.textContent = S.logs.filter(l => l.proj === S.cur?.code).length + ' 張';
+  el.innerHTML = items.length ? items.map(l => logItem(l)).join('') : '<div class="empty">尚無拍照紀錄</div>';
+}
+
+// ── Init ───────────────────────────────────────────────
+load();
+renderHome();
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
